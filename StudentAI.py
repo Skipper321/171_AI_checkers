@@ -2,14 +2,8 @@ from BoardClasses import Board, InvalidMoveError, InvalidParameterError
 from Move import Move
 import random
 import copy # for using deepcopy()
-
-# HOW TO RUN: 
-
-# Need to cd into Tools folder
-# cd /home/ics-home/Checkers_Student/Checkers_Student-1/Tools
-
-# Then run this in terminal: 
 # python3 AI_Runner.py 8 8 2 l ../src/checkers-python/main.py Sample_AIs/Random_AI/main.py
+# cd /home/ics-home/Checkers_Student/Checkers_Student-1/Tools
 
 
 class StudentAI:
@@ -25,6 +19,7 @@ class StudentAI:
     
 
     def get_move(self, move):
+        """Determines the AI's move using MiniMax"""
         #print(f"DEBUG: Received move in get_move(): {move}")  
         #print(f"DEBUG: AI is playing as color {self.color}")  
 
@@ -33,11 +28,7 @@ class StudentAI:
             if not isinstance(move, Move):
                 print(f"ERROR: Move {move} is not a Move object! Converting...")
                 #Convert BoardClasses.Move to Move
-                if hasattr(best_move, 'seq'):  
-                    move = Move(move.seq)  # Force conversion
-                    
-                else:  # Handle move strings if needed
-                    move = Move.from_str(str(move))  
+                move = Move.from_str(str(move))  
 
             # Get all possible moves BEFORE making the move
             legal_moves = self.board.get_all_possible_moves(self.opponent[self.color])
@@ -57,10 +48,10 @@ class StudentAI:
         else:
             self.color = 1  
 
-        # AI selects its move using Minimax
+        # AI selects move using Minimax
         best_move = self.minimax_decision(self.board, self.color, depth=3)
 
-        #Ensure best_move is a valid Move object
+        # Ensure best_move is a valid Move object
         if hasattr(best_move, 'seq'):  
             #print(f"DEBUG: best_move is a BoardClasses.Move. Converting to Move.")
             best_move = Move(best_move.seq)  
@@ -93,20 +84,24 @@ class StudentAI:
         if not legal_moves:
             return Move([])  # Empty Move List if - No moves available
 
+        # Iterate through each move 
         for move_list in legal_moves:
             for move in move_list:
+                # Create deep copy of board to simulate the move 
                 new_board = copy.deepcopy(board)
                 new_board.make_move(move, color)
 
+                # recursively evaluate the board using minimax 
                 value = self.minimax(new_board, depth - 1, False, self.opponent[color], float('-inf'), float('inf'))
 
+                # update value if a better one is found 
                 if value > best_value:
                     best_value = value
                     best_move = move
 
         if best_move is None:
             #print("ERROR: AI failed to select a valid move!")
-            return Move([])  
+            return Move([])  # Empty Move List if - No moves available
 
         #print(f"DEBUG: AI selected move (validated): {best_move}")
 
