@@ -135,6 +135,42 @@ class StudentAI:
         board: Current Board state
         Return "Winner" where 0 - tie, 1 - player 1 wins, 2 - player 2 wins 
         """
+        # Create a deep copy 
+        sim_board = copy.deepcopy(board)
+        # If the board doesn't track whose turn it is, assume it is our turn (self.color).
+        if not hasattr(sim_board, 'current_player'):
+            sim_board.current_player = self.color
+        current_player = sim_board.current_player
+
+        # Continue simulation until the game is over
+        while True:
+            # Determine the color string for current player: player 1 uses "B", player 2 uses "W"
+            current_color = 'B' if current_player == 1 else 'W'
+            # Check if the game has ended
+            result = sim_board.is_win(current_color)
+            if result != 0:
+                # is_win returns -1 for a tie, so we tie it into here
+                return 0 if result == -1 else result
+
+            # Get all legal moves for the current player
+            possible_moves_nested = sim_board.get_all_possible_moves(current_player)
+            possible_moves = [move for sublist in possible_moves_nested for move in sublist]
+
+            # If there are no possible moves, the current player loses
+            if not possible_moves:
+                return self.opponent[current_player]
+
+            # Select a random move from the available moves
+            move = random.choice(possible_moves)
+            try:
+                sim_board.make_move(move, current_player)
+            except InvalidMoveError:
+                # Try again if move is invalid
+                continue
+
+            # Switch turns
+            current_player = self.opponent[current_player]
+            sim_board.current_player = current_player
         
 
 
