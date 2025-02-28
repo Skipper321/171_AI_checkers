@@ -2,9 +2,43 @@ from BoardClasses import Board, InvalidMoveError, InvalidParameterError
 from Move import Move
 import random
 import copy # for using deepcopy()
+import math 
+import time
+
+# Commands 
 # python3 AI_Runner.py 8 8 2 l ../src/checkers-python/main.py Sample_AIs/Random_AI/main.py
+# python3 AI_Runner.py 8 8 2 n ../src/checkers-python/main.py
+
 # cd /home/ics-home/Checkers_Student/Checkers_Student-1/Tools
 
+# Running against poor AI: 
+# python3 AI_Runner.py 8 8 2 l ../src/checkers-python/main.py Sample_AIs/Poor_AI/main.py
+
+# Black is player 1, White is player 2 
+
+# Idea to improve MCTS would be could you cache certain paths of high winrate moves to make the AI faster
+# at making these moves? 
+
+
+class MCTSNode: 
+    """This represents a node in MCTS"""
+
+    def __init__(self, board, move=None, parent=None):
+        self.board = copy.deepcopy(board)  # Store board state as deepcopy
+        self.move = move  # Move that led to this node
+        self.parent = parent  # Parent node
+        self.children = []  # Child nodes
+        self.visits = 0  # Number of times node has been visited
+        self.wins = 0  # Number of wins from this node
+
+    def is_fully_expanded(self):
+        """Returns True if all possible moves have been explored."""
+        return len(self.children) == len(self.board.get_all_possible_moves(self.board.current_player))
+
+    def best_child(self, exploration_weight=1.4):
+        """Selects the child node with the highest UCT value."""
+        return max(self.children, key=lambda node: (node.wins / (node.visits + 1)) + 
+                   exploration_weight * math.sqrt(math.log(self.visits + 1) / (node.visits + 1)))
 
 class StudentAI:
     def __init__(self, col, row, p):
@@ -15,144 +49,112 @@ class StudentAI:
         self.board.initialize_game()
         self.color = 2  # AI plays as Player 2
         self.opponent = {1: 2, 2: 1}
+        self.simulation_time = 480 # 8 min time in seconds 
 
     
 
     def get_move(self, move):
-        """Determines the AI's move using MiniMax"""
-        #print(f"DEBUG: Received move in get_move(): {move}")  
-        #print(f"DEBUG: AI is playing as color {self.color}")  
-
+        """Determines the AI's move using MCTS """
+    
         # Ensure move is a Move object before processing
         if len(move) != 0:
-            if not isinstance(move, Move):
-                print(f"ERROR: Move {move} is not a Move object! Converting...")
-                #Convert BoardClasses.Move to Move
-                move = Move.from_str(str(move))  
-
-            # Get all possible moves BEFORE making the move
-            legal_moves = self.board.get_all_possible_moves(self.opponent[self.color])
-            #print(f"DEBUG: Legal moves BEFORE making move for opponent ({self.opponent[self.color]}): {legal_moves}")
-
-            # Check if the move is in the legal moves list
-            if move.seq not in [m.seq for sublist in legal_moves for m in sublist]:
-                print(f"WARNING: Move {move} is NOT in the legal moves list! Skipping execution.")
-            else:
-                try:
-                    self.board.make_move(move, self.opponent[self.color])
-                    #print(f"DEBUG: Successfully made move: {move}")
-                except InvalidMoveError:
-                    #print(f"ERROR: Move {move} is invalid according to make_move()!")
-                    return Move([])  
-
+            self.board.make_move(move, self.opponent[self.color]) 
         else:
             self.color = 1  
 
-        # AI selects move using Minimax
-        best_move = self.minimax_decision(self.board, self.color, depth=3)
+        # Run MCTS to determine the best move
+        best_move = self.mcts_search(self.board, self.simulation_time)
 
-        # Ensure best_move is a valid Move object
-        if hasattr(best_move, 'seq'):  
-            #print(f"DEBUG: best_move is a BoardClasses.Move. Converting to Move.")
-            best_move = Move(best_move.seq)  
-
-        elif not isinstance(best_move, Move):  
-            #print(f"ERROR: best_move is NOT a Move object! Converting... {best_move}")  
-            best_move = Move(best_move)  
-
-        # Validate best_move sequence before returning
-        if not best_move or not isinstance(best_move.seq, list) or len(best_move.seq) == 0:
-            #print("ERROR: best_move.seq is empty or incorrect format! Returning an empty move.")
-            return Move([])
-
-        # FINAL DEBUGGING BEFORE RETURN
-        #print(f"DEBUG: AI is about to return move: {best_move} (type: {type(best_move)})")
-        #print(f"DEBUG: AI move as string: {str(best_move)}")
+        # Ensure move is valid
+        if best_move is None:
+            return Move([])  # No valid move found
 
         self.board.make_move(best_move, self.color)
         return best_move  # Ensure we always return a properly formatted Move object
 
 
+    def mcts_search(self, board, time_limit = 480): 
+        """ Determine AI move using MCTS
+            board: refers to current game state 
+            time_limit: refers to time limit for MCTS (in seconds) in this case 8 min time limit per move 
+            returns: best move found 
+        """
+        # Set root as Node object of current game state 
+        root = MCTSNode(board)
+        # initailize current start time 
+        start_time = time.time() 
 
-    def minimax_decision(self, board, color, depth=3):
-        """Chooses the best move using Minimax with Alpha-Beta Pruning."""
-        best_move = None
-        best_value = float('-inf')
+        # Current time - start time is less than time limit 
+        while time.time() - start_time < time_limit: 
+            # start at root 
+            node = root 
 
-        legal_moves = board.get_all_possible_moves(color)
-        #print(f"DEBUG: Legal moves for AI (color {color}): {legal_moves}")
-        if not legal_moves:
-            return Move([])  # Empty Move List if - No moves available
+            # Traverse Tree using UCT formula 
+            while node.is_fully_expanded() and node.children: 
+                node = node.best_child() 
+    
+            # First get all possible moves 
+            possible_moves = board.get_all_possible_moves(board.current_player)
 
-        # Iterate through each move 
-        for move_list in legal_moves:
-            for move in move_list:
-                # Create deep copy of board to simulate the move 
-                new_board = copy.deepcopy(board)
-                new_board.make_move(move, color)
+            # if not a terminal state, expand a new child node 
+            if possible_moves and not node.is_fully_expanded():
+                move = random.choice(m for sublist in possible_moves for m in sublist)
 
-                # recursively evaluate the board using minimax 
-                value = self.minimax(new_board, depth - 1, False, self.opponent[color], float('-inf'), float('inf'))
+                # Create deep copy of board and apply the move
+                new_board = copy.deepcopy(node.board)
+                new_board.make_move(move, new_board.current_player)
 
-                # update value if a better one is found 
-                if value > best_value:
-                    best_value = value
-                    best_move = move
+                # Create new node for ths move
+                new_node = MCTSNode(new_board, move, node)
+                node.children.append(new_node)
 
-        if best_move is None:
-            #print("ERROR: AI failed to select a valid move!")
-            return Move([])  # Empty Move List if - No moves available
+                node = new_node # move to new node 
 
-        #print(f"DEBUG: AI selected move (validated): {best_move}")
+            # Simulate a random game to estimate the outcome 
+            # HERE: need to implement simulate_random_game function 
+            winner = self.simulate_random_game(node.board) 
 
-        # Ensure minimax decision always returns a Move object
-        if isinstance(best_move, tuple) or isinstance(best_move, list):
-            #print("ERROR: best_move is a tuple/list instead of Move! Converting...")
-            best_move = Move(best_move)
+            # Backpropagation to update win counts for the traversed path 
+            while node: 
+                node.visits = node.visits + 1 
+                # Count ties as wins for the AI as well 
+                if winner == board.current_player or winner == 0: 
+                    node.wins = node.wins + 1
+                # move backwards up the tree 
+                node = node.parent
 
-        return best_move
-
-    def minimax(self, board, depth, is_maximizing, color, alpha, beta):
-        """Minimax algorithm with Alpha-Beta Pruning."""
-        if depth == 0 or board.is_win(color) != 0:
-            return self.evaluate_board(board, color)
-
-        possible_moves = board.get_all_possible_moves(color)
-        if not possible_moves:
-            return -1000 if is_maximizing else 1000  # Assign large loss values
-
-        if is_maximizing:
-            max_eval = float('-inf')
-            for move_set in possible_moves:
-                for move in move_set:
-                    new_board = copy.deepcopy(board)
-                    new_board.make_move(move, color)
-
-                    eval = self.minimax(new_board, depth - 1, False, self.opponent[color], alpha, beta)
-                    max_eval = max(max_eval, eval)
-                    alpha = max(alpha, eval)
-
-                    if beta <= alpha:
-                        break  # Alpha-Beta Pruning
-            return max_eval
-        else:
-            min_eval = float('inf')
-            for move_set in possible_moves:
-                for move in move_set:
-                    new_board = copy.deepcopy(board)
-                    new_board.make_move(move, color)
-
-                    eval = self.minimax(new_board, depth - 1, True, self.opponent[color], alpha, beta)
-                    min_eval = min(min_eval, eval)
-                    beta = min(beta, eval)
-
-                    if beta <= alpha:
-                        break  # Alpha-Beta Pruning
-            return min_eval
-
-    def evaluate_board(self, board, color):
-        """Simple heuristic: AI pieces - Opponent pieces."""
-        my_pieces = sum(1 for row in board.board for piece in row if piece and piece.color == color)
-        opponent_pieces = sum(1 for row in board.board for piece in row if piece and piece.color == self.opponent[color])
+        # Choose the best move 
+        best_child = root.best_child(exploration_weight=0)  # Choose most visited node
         
-        return my_pieces - opponent_pieces  # Simple piece advantage heuristic
+        # return best move 
+        return best_child.move if best_child else None
+
+    # Need to implement 
+    def simulate_random_game(self, board): 
+        """ Simulates random game from given board state until winner is found 
+        board: Current Board state
+        Return "Winner" where 0 - tie, 1 - player 1 wins, 2 - player 2 wins 
+        """
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+
+
+
+
