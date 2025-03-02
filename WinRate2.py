@@ -8,8 +8,8 @@ NUM_CORES = multiprocessing.cpu_count()  # Use all CPU cores
 
 # Paths to AI scripts
 STUDENT_AI_PATH = "../src/checkers-python/main.py"
-RANDOM_AI_PATH = "Sample_AIs/Random_AI/main.py"
-BASE_COMMAND = f"python3 AI_Runner.py 8 8 2 l {STUDENT_AI_PATH} {RANDOM_AI_PATH}"
+POOR_AI_PATH = "Sample_AIs/Poor_AI/main.py"
+BASE_COMMAND = f"python3 AI_Runner.py 8 8 2 l {STUDENT_AI_PATH} {POOR_AI_PATH}"
 
 def play_game(_):
     """Runs a single game and returns the result (1 = win/Tie, 0 = loss)"""
