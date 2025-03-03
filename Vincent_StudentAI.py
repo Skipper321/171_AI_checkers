@@ -90,9 +90,16 @@ class StudentAI:
 
         best_move = self.mcts_search(self.board, self.simulation_time)
 
-        if best_move is None:
-            print("⚠️ AI failed to find a valid move!")
-            return Move([])
+        # **NEW: Fallback if MCTS returns an empty move.**
+        valid_moves_nested = self.board.get_all_possible_moves(self.color)
+        all_valid_moves = [m for sublist in valid_moves_nested for m in sublist]
+        if best_move is None or len(best_move.seq) == 0:
+            if all_valid_moves:
+                best_move = random.choice(all_valid_moves)
+                print("🔄 Fallback: using a random valid move.")
+            else:
+                print("⚠️ No valid moves available for AI!")
+                return Move([])
 
         valid_moves = [m.seq for sublist in self.board.get_all_possible_moves(self.color) for m in sublist]
         if best_move.seq not in valid_moves:
